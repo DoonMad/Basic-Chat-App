@@ -18,7 +18,7 @@ app.use(cors({
 }))
 
 
-const rooms = new Set();
+var rooms = new Set();
 
 const generateRoomId = () => {
     let roomId = Math.random().toString(36).substring(2, 8);;
@@ -29,6 +29,33 @@ const generateRoomId = () => {
     return roomId;
 }
 
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  socket.on("join_room", roomId => {
+    if(!roomId || !rooms.has(roomId)) {
+      socket.emit("error", "Room does not exist");
+      return;
+    }
+    socket.join(roomId);
+    socket.emit("user_joined", socket.id);
+  })
+  
+  socket.on("send_message", ({roomId, message}) => {
+    // console.log(roomId, message)b
+    if(!message?.text?.trim()) {
+      console.log("invlid msg");
+      return;
+    }
+    if(!roomId || !rooms.has(roomId)) {
+      console.log("invalid room");
+      return;
+    }
+    // console.log("message received on server");
+    socket.to(roomId).emit("receive_message", message)
+  })
+})
+
 
 // Routes?
 app.get('/', (req, res) => {
@@ -36,13 +63,21 @@ app.get('/', (req, res) => {
 });
 
 app.post('/api/rooms', (req, res) => {
+    // console.log("got here");
     const roomId = generateRoomId();
+    // console.log("got here21");
     res.json({id: roomId});
+    // console.log("got here22");
 })
 
 app.get('/api/rooms/:id', (req, res) => {
-    console.log(req.params)
-    res.send("created");
+  const { id } = req.params;
+
+  if (!rooms.has(id)) {
+    return res.status(404).json({ exists: false });
+  }
+
+  res.json({ exists: true });
 })
 
 
