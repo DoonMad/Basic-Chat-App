@@ -32,14 +32,18 @@ const generateRoomId = () => {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("join_room", roomId => {
-    if(!roomId || !rooms.has(roomId)) {
+  socket.on("join_room", (roomId) => {
+    if (!roomId || !rooms.has(roomId)) {
       socket.emit("error", "Room does not exist");
       return;
-    }
+    } 
+
     socket.join(roomId);
-    socket.emit("user_joined", socket.id);
-  })
+
+    io.to(roomId).emit("user_joined", {
+      userId: socket.id
+    });
+  });
   
   socket.on("send_message", ({roomId, message}) => {
     // console.log(roomId, message)b
@@ -52,7 +56,7 @@ io.on("connection", (socket) => {
       return;
     }
     // console.log("message received on server");
-    socket.to(roomId).emit("receive_message", message)
+    io.to(roomId).emit("receive_message", message)
   })
 })
 

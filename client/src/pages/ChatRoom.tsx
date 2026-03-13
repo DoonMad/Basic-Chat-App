@@ -3,46 +3,69 @@ import socket from "../socket/socket"
 import { useParams } from "react-router-dom"
 import Message from "../components/Message";
 import type { MessageType } from "../types/types";
+import { useNavigate } from "react-router-dom";
 
 function ChatRoom() {
   const { roomId } = useParams();
   const [msg, setMsg] = useState("");
-  const [allMessages, setAllMessages] = useState<MessageType[]>([{user: "12121", text: "hi there", time: "121212121"}]);
+  const [allMessages, setAllMessages] = useState<MessageType[]>([]);
+  const navigate = useNavigate();
+  const username = sessionStorage["username"];
 
-    useEffect(() => {
-      if (!roomId) return;
-      socket.emit("join_room", roomId);
-      return () => {
-        socket.emit("leave_room", roomId);
-      };
-    }, [roomId]);
+  useEffect(() => {
+    if (!roomId) return;
+    const checkRoom = async () => {
+      const res = await fetch(`http://localhost:3000/api/rooms/${roomId}`);
 
-    const sendMessage = () => {
-      if(msg && msg.trim() != "") {
-        const message = {text: msg, user: socket.id, time: (new Date()).toLocaleTimeString()}
-        console.log(message)
-        socket.emit("send_message", {roomId, message});
+      if (res.status !== 200) {
+        alert("Room does not exist");
+        navigate("/");
+        return;
       }
-      // alert("message sent");
+
+      console.log(username);
+
+      if(!username || username.trim() === "") {
+        alert("Enter a username first");
+        navigate("/");
+        return;
+      }
+
+      socket.emit("join_room", roomId);
+    };
+
+    checkRoom();
+
+    return () => {
+      socket.emit("leave_room", roomId);
+    };
+  }, [roomId]);
+
+  const sendMessage = () => {
+    if(msg && msg.trim() != "") {
+      const message = {text: msg, user: username, time: (new Date()).toLocaleTimeString(), id: socket.id}
+      setMsg("");
+      socket.emit("send_message", {roomId, message});
     }
+  }
 
-    useEffect(() => {
-      const handler = (message: MessageType) => {
-        setAllMessages(prev => [...prev, message]);
-      };
+  useEffect(() => {
+    const handler = (message: MessageType) => {
+      setAllMessages(prev => [...prev, message]);
+    };
 
-      socket.on("receive_message", handler);
+    socket.on("receive_message", handler);
 
-      return () => {
-        socket.off("receive_message", handler);
-      };
-    }, []);
+    return () => {
+      socket.off("receive_message", handler);
+    };
+  }, []);
 
 
   return (
     <div className="bg-linear-to-br from-green-400 to-fuchsia-500 text-while min-h-screen flex justify-center items-center flex-col p-5">
 
-        <div className="bg-black grow rounded w-full text-white">
+        <div className={`bg-black grow rounded w-full text-white`}>
           {allMessages.map((message, index) => (
             <Message key={index} message={message} />
           ))}
